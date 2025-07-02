@@ -2,9 +2,12 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"net"
 	"os"
 )
+
+const PONG_RES = "+PONG\r\n"
 
 func main() {
 	// You can use print statements as follows for debugging, they'll be visible when running tests.
@@ -21,5 +24,33 @@ func main() {
 		os.Exit(1)
 	}
 
-	conn.Write([]byte("+PONG\r\n"))
+	go handleConnection(conn)
+
+}
+
+func handleConnection(conn net.Conn) {
+	defer conn.Close()
+
+	// create byte slice
+	buffer := make([]byte, 1024)
+
+	for {
+
+		n, err := conn.Read(buffer)
+		fmt.Println("data >>", n)
+
+		if err != nil {
+			if err == io.EOF {
+				fmt.Println("Connection closed by peer")
+			} else {
+				fmt.Println("Error reading from connection of peer")
+			}
+			return
+		}
+
+		if n > 0 {
+			received := buffer[:n]
+			fmt.Printf("Received %d bytes: %s\n", n, received)
+		}
+	}
 }

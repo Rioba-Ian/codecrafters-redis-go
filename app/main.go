@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"os"
 )
@@ -24,7 +25,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	go handleConnection(conn)
+	handleConnection(conn)
 
 }
 
@@ -37,7 +38,6 @@ func handleConnection(conn net.Conn) {
 	for {
 
 		n, err := conn.Read(buffer)
-		fmt.Println("data >>", n)
 
 		if err != nil {
 			if err == io.EOF {
@@ -48,9 +48,13 @@ func handleConnection(conn net.Conn) {
 			return
 		}
 
-		if n > 0 {
-			received := buffer[:n]
-			fmt.Printf("Received %d bytes: %s\n", n, received)
+		log.Printf("command: \n%s", buffer[:n])
+
+		_, err = conn.Write([]byte("+PONG\r\n"))
+
+		if err != nil {
+			fmt.Println("error in write response")
+			return
 		}
 	}
 }

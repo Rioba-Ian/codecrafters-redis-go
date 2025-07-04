@@ -57,8 +57,8 @@ func readInt(b byte) int {
 
 func addPrefix(input string) []byte {
 	finalBytes := []byte("$")
-	inputBytes, _ := json.Marshal(string(input))
-	inputBytes = append(inputBytes, '\r', 'n')
+	inputBytes := []byte(input)
+	inputBytes = append(inputBytes, '\r', '\n')
 	lenBytes, _ := json.Marshal(len(input))
 	firstBytes := []byte("\r\n")
 

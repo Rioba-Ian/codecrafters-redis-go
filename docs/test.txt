@@ -29,3 +29,124 @@ func parser(input string) (string, []string) {
 
 	return receivedStr[0], receivedStr[0:]
 }
+
+
+type Type byte
+
+type RESP struct {
+	Type Type
+	Raw  []byte
+	Data []byte
+}
+
+
+class RESPParser:
+    def __init__(self):
+        self.buffer = b''
+        self.pos = 0
+
+    def feed(self, data):
+        """Feed new data to the parser"""
+        self.buffer += data
+
+    def parse_command(self):
+        """Parse a complete RESP command from buffer"""
+        if not self.buffer:
+            return None
+
+        self.pos = 0
+        try:
+            result = self._parse_element()
+            # Remove parsed data from buffer
+            self.buffer = self.buffer[self.pos:]
+            self.pos = 0
+            return result
+        except IncompleteDataError:
+            return None  # Need more data
+
+    def _parse_element(self):
+        """Parse a single RESP element"""
+        if self.pos >= len(self.buffer):
+            raise IncompleteDataError()
+
+        type_byte = chr(self.buffer[self.pos])
+        self.pos += 1
+
+        if type_byte == '*':
+            return self._parse_array()
+        elif type_byte == '$':
+            return self._parse_bulk_string()
+        elif type_byte == ':':
+            return self._parse_integer()
+        elif type_byte == '+':
+            return self._parse_simple_string()
+        elif type_byte == '-':
+            return self._parse_error()
+        else:
+            raise ValueError(f"Unknown RESP type: {type_byte}")
+
+    def _parse_array(self):
+        """Parse RESP array (*2\r\n...)"""
+        length = self._read_integer()
+        if length == -1:
+            return None  # Null array
+
+        elements = []
+        for _ in range(length):
+            elements.append(self._parse_element())
+        return elements
+
+    def _parse_bulk_string(self):
+        """Parse RESP bulk string ($4\r\nECHO\r\n)"""
+        length = self._read_integer()
+        if length == -1:
+            return None  # Null bulk string
+
+        # Read the string data
+        if self.pos + length + 2 > len(self.buffer):  # +2 for \r\n
+            raise IncompleteDataError()
+
+        string_data = self.buffer[self.pos:self.pos + length]
+        self.pos += length
+
+        # Skip \r\n
+        if self.buffer[self.pos:self.pos + 2] != b'\r\n':
+            raise ValueError("Expected \\r\\n after bulk string")
+        self.pos += 2
+
+        return string_data.decode('utf-8')
+
+    def _parse_integer(self):
+        """Parse RESP integer (:123\r\n)"""
+        return self._read_integer()
+
+    def _parse_simple_string(self):
+        """Parse RESP simple string (+OK\r\n)"""
+        line = self._read_line()
+        return line.decode('utf-8')
+
+    def _parse_error(self):
+        """Parse RESP error (-ERR message\r\n)"""
+        line = self._read_line()
+        return {'error': line.decode('utf-8')}
+
+    def _read_integer(self):
+        """Read an integer followed by \r\n"""
+        line = self._read_line()
+        return int(line.decode('utf-8'))
+
+    def _read_line(self):
+        """Read a line ending with \r\n"""
+        start = self.pos
+        while self.pos < len(self.buffer) - 1:
+            if self.buffer[self.pos:self.pos + 2] == b'\r\n':
+                line = self.buffer[start:self.pos]
+                self.pos += 2
+                return line
+            self.pos += 1
+        raise IncompleteDataError()
+
+
+class IncompleteDataError(Exception):
+    """Raised when we need more data to complete parsing"""
+    pass

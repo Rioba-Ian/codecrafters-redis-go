@@ -1,11 +1,12 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"os"
+	"strings"
 )
 
 const PONG_RES = "+PONG\r\n"
@@ -31,6 +32,10 @@ func main() {
 	}
 }
 
+type Command struct {
+	echoOutput string
+}
+
 func handleConnection(conn net.Conn) {
 	defer conn.Close()
 
@@ -38,7 +43,6 @@ func handleConnection(conn net.Conn) {
 	buffer := make([]byte, 1024)
 
 	for {
-
 		n, err := conn.Read(buffer)
 
 		if err != nil {
@@ -50,13 +54,49 @@ func handleConnection(conn net.Conn) {
 			return
 		}
 
-		log.Printf("command: \n%s", buffer[:n])
+		// log.Println("command:", string(buffer[:n]))
 
-		_, err = conn.Write([]byte("+PONG\r\n"))
+		cmd, restStr := parser(string(buffer[:n]))
+		var byteRes []byte
+		switch cmd {
+		case "ECHO", "echo":
+			jsonBytes, _ := json.Marshal(restStr)
+			byteRes = jsonBytes
+		case "PING", "ping":
+			byteRes = []byte("+PONG\r\n")
+		default:
+		}
+
+		_, err = conn.Write(byteRes)
 
 		if err != nil {
 			fmt.Println("error in write response")
 			return
 		}
 	}
+}
+
+/*
+ * Resp data type | Category | first byte
+ * Simple strings | Simple |  +
+ * Simple Errors | Simple |  -
+ * Simple Integers | Simple | :
+ * Bulk Strings | Aggregate | $
+ * Array strings |Aggregate | *
+ */
+
+func parser(input string) (string, []string) {
+
+	words := strings.Fields(input)
+	var receivedStr []string
+
+	for _, ch := range words {
+		if strings.HasPrefix(ch, "*") {
+		} else if strings.HasPrefix(ch, "$") {
+		} else {
+			receivedStr = append(receivedStr, ch)
+		}
+	}
+
+	return receivedStr[0], receivedStr[1:]
 }

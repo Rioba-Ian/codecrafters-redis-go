@@ -54,13 +54,11 @@ func handleConnection(conn net.Conn) {
 			return
 		}
 
-		// log.Println("command:", string(buffer[:n]))
-
 		cmd, restStr := parser(string(buffer[:n]))
 		var byteRes []byte
 		switch cmd {
 		case "ECHO", "echo":
-			jsonBytes, _ := json.Marshal(restStr)
+			jsonBytes, _ := json.Marshal(strings.Join(restStr, ""))
 			byteRes = jsonBytes
 		case "PING", "ping":
 			byteRes = []byte("+PONG\r\n")

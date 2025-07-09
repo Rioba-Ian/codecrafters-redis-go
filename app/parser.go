@@ -210,7 +210,7 @@ func FormatResp(value interface{}) string {
 
 func handleCommand(cmd []string) string {
 	if len(cmd) == 0 {
-		return FormatResp(errors.New("ERROR: empty command"))
+		return FormatResp(errors.New("-ERR: empty command"))
 	}
 
 	command := strings.ToUpper(cmd[0])
@@ -225,35 +225,35 @@ func handleCommand(cmd []string) string {
 
 	case "ECHO":
 		if len(cmd) < 2 {
-			return FormatResp(errors.New("ERROR ECHO needs arguments"))
+			return FormatResp(errors.New("-ERR ECHO needs arguments"))
 		}
 
 		return FormatResp(cmd[1])
 
 	case "SET":
 		if len(cmd) < 3 {
-			return FormatResp(errors.New("ERR wrong number of argumnts for 'SET' command"))
+			return FormatResp(errors.New("-ERR wrong number of argumnts for 'SET' command"))
 		}
 
 		if err := setValue(cmd[1:]); err != nil {
-			return FormatResp(errors.New("ERROR something went wrong"))
+			return FormatResp(errors.New("-ERR something went wrong"))
 		}
 
 		return FormatResp("OK")
 
 	case "GET":
 		if len(cmd) < 2 {
-			return FormatResp(errors.New("ERR wrong number of argumnts for 'GET' command"))
+			return FormatResp(errors.New("-ERR wrong number of argumnts for 'GET' command"))
 		}
 
 		val, err := getValue(cmd[1])
 
 		if err != nil {
-			return FormatResp(errors.New("ERROR could not get value"))
+			return FormatResp(errors.New("-1"))
 		}
 		return FormatResp(val)
 
 	default:
-		return FormatResp(fmt.Errorf("ERROR unknown command '%s'", command))
+		return FormatResp(fmt.Errorf("-ERR unknown command '%s'", command))
 	}
 }

@@ -2,24 +2,25 @@ package main
 
 import (
 	"fmt"
+	"sync"
 )
 
-var store = make(map[string]string)
+var DB sync.Map
 
 func setValue(keyval []string) error {
-	if len(keyval) != 2 {
+	if len(keyval) < 2 {
 		return fmt.Errorf("did not find key and value")
 	}
 
-	store[keyval[0]] = keyval[1]
+	DB.Store(keyval[0], keyval[1:])
 
 	return nil
 }
 
-func getValue(key string) (string, error) {
-	val, found := store[key]
+func getValue(key string) (interface{}, error) {
+	val, ok := DB.Load(key)
 
-	if !found {
+	if !ok {
 		return "", fmt.Errorf("value not found")
 	}
 

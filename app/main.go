@@ -33,34 +33,28 @@ func main() {
 func handleConnection(conn net.Conn) {
 	defer conn.Close()
 
-	// create byte slice
-	buffer := make([]byte, 1024)
+	parser := NewRediParser(conn)
 
 	for {
-		n, err := conn.Read(buffer)
+		value, err := parser.Parse()
+
+		if err == io.EOF {
+			fmt.Println("Connection closed by peer")
+			break
+		}
 
 		if err != nil {
-			if err == io.EOF {
-				fmt.Println("Connection closed by peer")
-			} else {
-				fmt.Println("Error reading from connection of peer")
-			}
+			fmt.Println("Error parsing command")
 			return
 		}
 
-		resp := RESP{}
+		cmd := value.convertToCommand()
 
-		resp.Raw = buffer[:n]
-		cmd, dataBytes := resp.parse()
+		fmt.Printf("Parsed command %v	", cmd)
 
-		switch cmd {
-		case "ECHO", "echo":
-		case "PING", "ping":
-			dataBytes = []byte(PONG_RES)
-		default:
-		}
+		res := handleCommand(cmd)
 
-		_, err = conn.Write(dataBytes)
+		_, err = conn.Write([]byte(res))
 
 		if err != nil {
 			fmt.Println("error in write response")

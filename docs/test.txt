@@ -1,152 +1,265 @@
-// my previous parser had these which I'll use later
+// RedisValue represents a Redis protocol value
+type RedisValue struct {
+	Type   string
+	String string
+	Number int
+	Array  []RedisValue
+}
 
-/*
- * Resp data type | Category | first byte
- * Simple strings | Simple |  +
- * Simple Errors | Simple |  -
- * Simple Integers | Simple | :
- * Bulk Strings | Aggregate | $
- * Array strings |Aggregate | *
- */
+// RedisParser handles parsing of Redis protocol messages
+type RedisParser struct {
+	reader *bufio.Reader
+}
 
-func parser(input string) (string, []string) {
+// NewRedisParser creates a new Redis protocol parser
+func NewRedisParser(reader io.Reader) *RedisParser {
+	return &RedisParser{
+		reader: bufio.NewReader(reader),
+	}
+}
 
-	words := strings.Fields(input)
-	var receivedStr []string
-
-	for _, ch := range words {
-		if strings.HasPrefix(ch, "*") {
-			fmt.Printf("'%s' starts with '%s'\n", ch, "*")
-		} else if strings.HasPrefix(ch, "$") {
-			fmt.Printf("'%s' starts with '%s'\n", ch, "$")
-		} else {
-			receivedStr = append(receivedStr, ch)
-		}
+// Parse parses a Redis protocol message
+func (p *RedisParser) Parse() (*RedisValue, error) {
+	typeByte, err := p.reader.ReadByte()
+	if err != nil {
+		return nil, err
 	}
 
-	fmt.Println("command::  ", receivedStr[0])
-	fmt.Println("rest str::  ", receivedStr[1:])
+	switch typeByte {
+	case '+':
+		return p.parseSimpleString()
+	case '-':
+		return p.parseError()
+	case ':':
+		return p.parseInteger()
+	case '$':
+		return p.parseBulkString()
+	case '*':
+		return p.parseArray()
+	default:
+		return nil, fmt.Errorf("unknown type byte: %c", typeByte)
+	}
+}
 
-	return receivedStr[0], receivedStr[0:]
+// parseSimpleString parses a simple string (+OK\r\n)
+func (p *RedisParser) parseSimpleString() (*RedisValue, error) {
+	line, err := p.readLine()
+	if err != nil {
+		return nil, err
+	}
+	return &RedisValue{Type: "string", String: line}, nil
+}
+
+// parseError parses an error (-Error message\r\n)
+func (p *RedisParser) parseError() (*RedisValue, error) {
+	line, err := p.readLine()
+	if err != nil {
+		return nil, err
+	}
+	return &RedisValue{Type: "error", String: line}, nil
+}
+
+// parseInteger parses an integer (:1000\r\n)
+func (p *RedisParser) parseInteger() (*RedisValue, error) {
+	line, err := p.readLine()
+	if err != nil {
+		return nil, err
+	}
+	num, err := strconv.Atoi(line)
+	if err != nil {
+		return nil, fmt.Errorf("invalid integer: %s", line)
+	}
+	return &RedisValue{Type: "integer", Number: num}, nil
+}
+
+// parseBulkString parses a bulk string ($6\r\nfoobar\r\n)
+func (p *RedisParser) parseBulkString() (*RedisValue, error) {
+	line, err := p.readLine()
+	if err != nil {
+		return nil, err
+	}
+
+	length, err := strconv.Atoi(line)
+	if err != nil {
+		return nil, fmt.Errorf("invalid bulk string length: %s", line)
+	}
+
+	if length == -1 {
+		return &RedisValue{Type: "null"}, nil
+	}
+
+	if length == 0 {
+		// Read the empty line
+		_, err := p.readLine()
+		if err != nil {
+			return nil, err
+		}
+		return &RedisValue{Type: "string", String: ""}, nil
+	}
+
+	buf := make([]byte, length)
+	_, err = io.ReadFull(p.reader, buf)
+	if err != nil {
+		return nil, err
+	}
+
+	// Read the trailing \r\n
+	_, err = p.readLine()
+	if err != nil {
+		return nil, err
+	}
+
+	return &RedisValue{Type: "string", String: string(buf)}, nil
+}
+
+// parseArray parses an array (*2\r\n$3\r\nfoo\r\n$3\r\nbar\r\n)
+func (p *RedisParser) parseArray() (*RedisValue, error) {
+	line, err := p.readLine()
+	if err != nil {
+		return nil, err
+	}
+
+	length, err := strconv.Atoi(line)
+	if err != nil {
+		return nil, fmt.Errorf("invalid array length: %s", line)
+	}
+
+	if length == -1 {
+		return &RedisValue{Type: "null"}, nil
+	}
+
+	array := make([]RedisValue, length)
+	for i := 0; i < length; i++ {
+		value, err := p.Parse()
+		if err != nil {
+			return nil, err
+		}
+		array[i] = *value
+	}
+
+	return &RedisValue{Type: "array", Array: array}, nil
+}
+
+// readLine reads a line until \r\n
+func (p *RedisParser) readLine() (string, error) {
+	line, err := p.reader.ReadString('\n')
+	if err != nil {
+		return "", err
+	}
+
+	if len(line) < 2 || line[len(line)-2] != '\r' {
+		return "", fmt.Errorf("invalid line ending")
+	}
+
+	return line[:len(line)-2], nil
+}
+
+// ToCommand converts a RedisValue to a command array
+func (v *RedisValue) ToCommand() []string {
+	if v.Type != "array" {
+		return []string{v.String}
+	}
+
+	cmd := make([]string, len(v.Array))
+	for i, arg := range v.Array {
+		cmd[i] = arg.String
+	}
+	return cmd
+}
+
+// FormatResponse formats a response in Redis protocol format
+func FormatResponse(value interface{}) string {
+	switch v := value.(type) {
+	case string:
+		return fmt.Sprintf("+%s\r\n", v)
+	case int:
+		return fmt.Sprintf(":%d\r\n", v)
+	case error:
+		return fmt.Sprintf("-%s\r\n", v.Error())
+	case nil:
+		return "$-1\r\n"
+	default:
+		return fmt.Sprintf("+%v\r\n", v)
+	}
 }
 
 
-type Type byte
-
-type RESP struct {
-	Type Type
-	Raw  []byte
-	Data []byte
+func main() {
 }
 
+func handleConnection(conn net.Conn) {
+	defer conn.Close()
 
-class RESPParser:
-    def __init__(self):
-        self.buffer = b''
-        self.pos = 0
+	parser := NewRedisParser(conn)
 
-    def feed(self, data):
-        """Feed new data to the parser"""
-        self.buffer += data
+	for {
+		value, err := parser.Parse()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			fmt.Printf("Error parsing command: %v\n", err)
+			return
+		}
 
-    def parse_command(self):
-        """Parse a complete RESP command from buffer"""
-        if not self.buffer:
-            return None
+		// Convert to command array
+		cmd := value.ToCommand()
+		if len(cmd) == 0 {
+			continue
+		}
 
-        self.pos = 0
-        try:
-            result = self._parse_element()
-            # Remove parsed data from buffer
-            self.buffer = self.buffer[self.pos:]
-            self.pos = 0
-            return result
-        except IncompleteDataError:
-            return None  # Need more data
+		// Log the parsed command
+		log.Printf("Parsed command: %v", cmd)
 
-    def _parse_element(self):
-        """Parse a single RESP element"""
-        if self.pos >= len(self.buffer):
-            raise IncompleteDataError()
+		// Handle the command
+		response := handleCommand(cmd)
 
-        type_byte = chr(self.buffer[self.pos])
-        self.pos += 1
+		// Send response
+		_, err = conn.Write([]byte(response))
+		if err != nil {
+			fmt.Printf("Failed to write response: %v\n", err)
+			return
+		}
+	}
+}
 
-        if type_byte == '*':
-            return self._parse_array()
-        elif type_byte == '$':
-            return self._parse_bulk_string()
-        elif type_byte == ':':
-            return self._parse_integer()
-        elif type_byte == '+':
-            return self._parse_simple_string()
-        elif type_byte == '-':
-            return self._parse_error()
-        else:
-            raise ValueError(f"Unknown RESP type: {type_byte}")
+// handleCommand processes Redis commands and returns appropriate responses
+func handleCommand(cmd []string) string {
+	if len(cmd) == 0 {
+		return FormatResponse(errors.New("ERR empty command"))
+	}
 
-    def _parse_array(self):
-        """Parse RESP array (*2\r\n...)"""
-        length = self._read_integer()
-        if length == -1:
-            return None  # Null array
+	command := strings.ToUpper(cmd[0])
 
-        elements = []
-        for _ in range(length):
-            elements.append(self._parse_element())
-        return elements
+	switch command {
+	case "PING":
+		if len(cmd) == 1 {
+			return FormatResponse("PONG")
+		}
+		// PING with message
+		return FormatResponse(cmd[1])
 
-    def _parse_bulk_string(self):
-        """Parse RESP bulk string ($4\r\nECHO\r\n)"""
-        length = self._read_integer()
-        if length == -1:
-            return None  # Null bulk string
+	case "ECHO":
+		if len(cmd) < 2 {
+			return FormatResponse(errors.New("ERR wrong number of arguments for 'echo' command"))
+		}
+		return FormatResponse(cmd[1])
 
-        # Read the string data
-        if self.pos + length + 2 > len(self.buffer):  # +2 for \r\n
-            raise IncompleteDataError()
+	case "SET":
+		if len(cmd) < 3 {
+			return FormatResponse(errors.New("ERR wrong number of arguments for 'set' command"))
+		}
+		// For now, just return OK (we'll implement actual storage later)
+		return FormatResponse("OK")
 
-        string_data = self.buffer[self.pos:self.pos + length]
-        self.pos += length
+	case "GET":
+		if len(cmd) < 2 {
+			return FormatResponse(errors.New("ERR wrong number of arguments for 'get' command"))
+		}
+		// For now, return null (we'll implement actual storage later)
+		return FormatResponse(nil)
 
-        # Skip \r\n
-        if self.buffer[self.pos:self.pos + 2] != b'\r\n':
-            raise ValueError("Expected \\r\\n after bulk string")
-        self.pos += 2
-
-        return string_data.decode('utf-8')
-
-    def _parse_integer(self):
-        """Parse RESP integer (:123\r\n)"""
-        return self._read_integer()
-
-    def _parse_simple_string(self):
-        """Parse RESP simple string (+OK\r\n)"""
-        line = self._read_line()
-        return line.decode('utf-8')
-
-    def _parse_error(self):
-        """Parse RESP error (-ERR message\r\n)"""
-        line = self._read_line()
-        return {'error': line.decode('utf-8')}
-
-    def _read_integer(self):
-        """Read an integer followed by \r\n"""
-        line = self._read_line()
-        return int(line.decode('utf-8'))
-
-    def _read_line(self):
-        """Read a line ending with \r\n"""
-        start = self.pos
-        while self.pos < len(self.buffer) - 1:
-            if self.buffer[self.pos:self.pos + 2] == b'\r\n':
-                line = self.buffer[start:self.pos]
-                self.pos += 2
-                return line
-            self.pos += 1
-        raise IncompleteDataError()
-
-
-class IncompleteDataError(Exception):
-    """Raised when we need more data to complete parsing"""
-    pass
+	default:
+		return FormatResponse(fmt.Errorf("ERR unknown command '%s'", command))
+	}
+}

@@ -51,7 +51,7 @@ func getValue(key string) (interface{}, error) {
 	dataKeyVal, ok := val.(KeyValue)
 
 	if time.Now().After(dataKeyVal.Time) {
-		return "", fmt.Errorf("value not found")
+		return nil, nil
 	}
 
 	return strings.Join(dataKeyVal.Data, " "), nil

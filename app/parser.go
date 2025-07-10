@@ -256,7 +256,11 @@ func handleCommand(cmd []string) string {
 			return FormatResp(errors.New("1"))
 		}
 
-		return FormatResp(val)
+		if val != nil {
+			return FormatResp(val)
+		}
+
+		return FormatResp(nil)
 
 	default:
 		return FormatResp(fmt.Errorf("-ERR unknown command '%s'", command))

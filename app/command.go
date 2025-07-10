@@ -53,5 +53,5 @@ func getValue(key string) (interface{}, error) {
 		return "", fmt.Errorf("value not found")
 	}
 
-	return dataKeyVal, nil
+	return dataKeyVal.Data, nil
 }

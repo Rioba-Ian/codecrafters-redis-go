@@ -10,7 +10,7 @@ import (
 
 type KeyValue struct {
 	Data []string
-	Time time.Time
+	Time *time.Time
 }
 
 var DB sync.Map
@@ -30,10 +30,11 @@ func setValue(keyval []string) error {
 			return fmt.Errorf("could not convert time to int")
 		}
 
-		durationToLast := time.Duration(exp) * time.Millisecond
-		data.Time = time.Now().Add(durationToLast)
+		durationToLast := time.Now().Add(time.Duration(exp) * time.Millisecond)
+		data.Time = &durationToLast
 	} else {
 		data.Data = keyval[1:]
+		data.Time = nil
 	}
 
 	DB.Store(keyval[0], data)
@@ -50,7 +51,11 @@ func getValue(key string) (interface{}, error) {
 
 	dataKeyVal, ok := val.(KeyValue)
 
-	if time.Now().After(dataKeyVal.Time) {
+	if dataKeyVal.Time == nil {
+		return strings.Join(dataKeyVal.Data, " "), nil
+	}
+
+	if time.Now().After(*dataKeyVal.Time) {
 		return nil, nil
 	}
 

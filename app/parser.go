@@ -256,7 +256,6 @@ func handleCommand(cmd []string) string {
 			return FormatResp(errors.New("-1"))
 		}
 
-		fmt.Printf("\n value we get back %v\n", val)
 		return FormatResp(val)
 
 	default:

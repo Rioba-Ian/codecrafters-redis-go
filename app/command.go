@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -53,5 +54,5 @@ func getValue(key string) (interface{}, error) {
 		return "", fmt.Errorf("value not found")
 	}
 
-	return dataKeyVal.Data, nil
+	return strings.Join(dataKeyVal.Data, " "), nil
 }

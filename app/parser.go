@@ -201,8 +201,12 @@ func FormatResp(value interface{}) string {
 	switch v := value.(type) {
 	case string:
 		return fmt.Sprintf("+%s\r\n", v)
+	case int:
+		return fmt.Sprintf(":%d\r\n", v)
 	case error:
 		return fmt.Sprintf("-%s\r\n", v.Error())
+	case nil:
+		return "$-1\r\n"
 	default:
 		return fmt.Sprintf("+%v\r\n", v)
 	}

@@ -253,7 +253,7 @@ func handleCommand(cmd []string) string {
 		val, err := getValue(cmd[1])
 
 		if err != nil {
-			return FormatResp(errors.New("-1"))
+			return FormatResp(nil)
 		}
 
 		return FormatResp(val)

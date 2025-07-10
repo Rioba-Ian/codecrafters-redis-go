@@ -49,9 +49,6 @@ func handleConnection(conn net.Conn) {
 		}
 
 		cmd := value.convertToCommand()
-
-		fmt.Printf("Parsed command %v	", cmd)
-
 		res := handleCommand(cmd)
 
 		_, err = conn.Write([]byte(res))

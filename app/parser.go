@@ -204,8 +204,7 @@ func FormatResp(value interface{}) string {
 	case int:
 		return fmt.Sprintf(":%d\r\n", v)
 	case error:
-		fmt.Printf("\n going to throw error%s", v.Error())
-		return fmt.Sprintf("%s\r\n", v.Error())
+		return fmt.Sprintf("-%s\r\n", v.Error())
 	case nil:
 		return "$-1\r\n"
 	default:
@@ -254,7 +253,7 @@ func handleCommand(cmd []string) string {
 		val, err := getValue(cmd[1])
 
 		if err != nil {
-			return FormatResp(errors.New("$-1"))
+			return FormatResp(errors.New("1"))
 		}
 
 		return FormatResp(val)

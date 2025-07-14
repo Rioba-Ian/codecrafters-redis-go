@@ -214,7 +214,7 @@ func FormatResp(value interface{}) string {
 			finalBulkStr = append(finalBulkStr, appendStr)
 		}
 
-		res := strings.Join(finalBulkStr, " ")
+		res := strings.Join(finalBulkStr, "")
 		fmt.Printf("result:: %s", res)
 		return res
 	case nil:

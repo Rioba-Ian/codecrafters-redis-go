@@ -205,6 +205,18 @@ func FormatResp(value interface{}) string {
 		return fmt.Sprintf(":%d\r\n", v)
 	case error:
 		return fmt.Sprintf("-%s\r\n", v.Error())
+	case []string:
+		finalBulkStr := make([]string, len(v))
+		finalBulkStr = append(finalBulkStr, fmt.Sprintf("*%d\r\n", len(v)))
+
+		for i := 0; i < len(v); i++ {
+			appendStr := fmt.Sprintf("$%d\r\n%s\r\n", len(v[i]), v[i])
+			finalBulkStr = append(finalBulkStr, appendStr)
+		}
+
+		res := strings.Join(finalBulkStr, " ")
+		fmt.Printf("result:: %s", res)
+		return res
 	case nil:
 		return "$-1\r\n"
 	default:
@@ -272,7 +284,7 @@ func handleCommand(cmd []string) string {
 
 		rdbStorageConfig := getStorageConfig(cmd[2])
 
-		return FormatResp(strings.Split(rdbStorageConfig, " "))
+		return FormatResp(rdbStorageConfig)
 
 	default:
 		return FormatResp(fmt.Errorf("-ERR unknown command '%s'", command))

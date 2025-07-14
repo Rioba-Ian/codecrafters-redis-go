@@ -81,13 +81,13 @@ func rdbFileConfig() {
 	flag.Parse()
 }
 
-func getStorageConfig(config string) string {
+func getStorageConfig(config string) []string {
 	switch config {
 	case "dir":
-		return *redisdir
+		return []string{"dir", *redisdir}
 	case "dbfilename":
-		return *redisdbfilename
+		return []string{"dbfilename", *redisdbfilename}
 	default:
-		return ""
+		return nil
 	}
 }

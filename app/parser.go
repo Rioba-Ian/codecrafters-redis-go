@@ -272,7 +272,7 @@ func handleCommand(cmd []string) string {
 
 		rdbStorageConfig := getStorageConfig(cmd[2])
 
-		return FormatResp(rdbStorageConfig)
+		return FormatResp(strings.Split(rdbStorageConfig, " "))
 
 	default:
 		return FormatResp(fmt.Errorf("-ERR unknown command '%s'", command))

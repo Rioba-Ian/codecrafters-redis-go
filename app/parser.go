@@ -261,6 +261,18 @@ func handleCommand(cmd []string) string {
 		}
 
 		return FormatResp(nil)
+	case "CONFIG":
+		if len(cmd) < 3 {
+			return FormatResp(errors.New("-ERR wrong number of argumnts for 'CONFIG' command, required 3 args"))
+		}
+
+		if strings.Compare(cmd[1], "GET") != 0 {
+			return FormatResp(errors.New("-ERR expected to receive 'GET' as second argument"))
+		}
+
+		rdbStorageConfig := getStorageConfig(cmd[2])
+
+		return FormatResp(rdbStorageConfig)
 
 	default:
 		return FormatResp(fmt.Errorf("-ERR unknown command '%s'", command))

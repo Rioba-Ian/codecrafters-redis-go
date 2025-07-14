@@ -1,12 +1,23 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 )
+
+var (
+	redisdir        = flag.String("dir", "", "Path to the directory where the rbd file is stored ")
+	redisdbfilename = flag.String("dbfilename", "", "name of the rdb file (example: rdbfile)")
+)
+
+type RdbStorage struct {
+	dir      string
+	filename string
+}
 
 type KeyValue struct {
 	Data []string
@@ -60,4 +71,23 @@ func getValue(key string) (interface{}, error) {
 	}
 
 	return strings.Join(dataKeyVal.Data, " "), nil
+}
+
+/*
+ Set storage variables and parse them
+*/
+
+func rdbFileConfig() {
+	flag.Parse()
+}
+
+func getStorageConfig(config string) string {
+	switch config {
+	case "dir":
+		return *redisdir
+	case "dbfilename":
+		return *redisdbfilename
+	default:
+		return ""
+	}
 }

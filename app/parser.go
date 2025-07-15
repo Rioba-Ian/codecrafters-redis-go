@@ -286,6 +286,17 @@ func handleCommand(cmd []string) string {
 
 		return FormatResp(rdbStorageConfig)
 
+	case "KEYS":
+		fmt.Println("received the keys args")
+
+		_, err := loadStoreFromRDB()
+
+		if err != nil {
+			return FormatResp(errors.New("-ERR could not parse storage db"))
+		}
+
+		return FormatResp(nil)
+
 	default:
 		return FormatResp(fmt.Errorf("-ERR unknown command '%s'", command))
 	}

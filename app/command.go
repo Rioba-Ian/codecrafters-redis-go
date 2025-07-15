@@ -3,6 +3,9 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log/slog"
+	"os"
+	"path"
 	"strconv"
 	"strings"
 	"sync"
@@ -90,4 +93,21 @@ func getStorageConfig(config string) []string {
 	default:
 		return nil
 	}
+}
+
+func loadStoreFromRDB() (*sync.Map, error) {
+	b := make([]byte, 200)
+
+	file, err := os.Open(path.Join(*redisdir, *redisdbfilename))
+
+	if err != nil {
+		slog.Warn("Failed to open file. Starting with empty store")
+		return &sync.Map{}, err
+	}
+	defer file.Close()
+
+	file.Read(b)
+	slog.Info("Reading file", "file", path.Join(*redisdir, *redisdbfilename))
+
+	return &DB, nil
 }
